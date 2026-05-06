@@ -1,0 +1,16 @@
+{
+  "name": "notification_app_be",
+  "version": "1.0.0",
+  "description": "Stage 1 backend for campus notifications priority inbox",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [
+    "notifications",
+    "backend",
+    "priority-inbox"
+  ],
+  "author": "",
+  "license": "MIT"
+}
