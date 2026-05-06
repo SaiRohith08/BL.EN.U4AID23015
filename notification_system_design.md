@@ -45,3 +45,49 @@ Using the reusable `logging_middleware` package:
 - `error` log if API fetch or processing fails
 
 This gives traceability for both successful and failed execution paths.
+
+## Stage 2
+
+### Frontend architecture
+
+- Stack: React + Vite + Material UI.
+- Router structure:
+  - `/` -> All Notifications page
+  - `/priority` -> Priority Inbox page
+- State layers:
+  - API query state (`page`, `limit`, `notification_type`)
+  - View-state (`viewed IDs`) persisted in localStorage
+  - Priority controls (`top n`, type filter)
+
+### API usage
+
+- All Notifications page uses server query parameters directly:
+  - `page`
+  - `limit`
+  - `notification_type`
+- Priority page fetches paginated notifications and computes top `n` client-side using:
+  - Type weight (`Placement > Result > Event`)
+  - Recency (latest timestamp first)
+
+### Viewed vs new notifications
+
+- Each notification card click marks the notification as viewed.
+- Viewed IDs are stored in localStorage (`viewed_notification_ids`).
+- UI chip displays `New` or `Viewed` state for every notification.
+
+### Logging strategy (frontend)
+
+- Non-blocking logs are emitted for:
+  - page fetch start
+  - fetch failures
+  - major user-driven data transitions
+- Log payload follows required schema:
+  - `stack: "frontend"`
+  - valid `level`
+  - valid `package` (`page`, `api`, `component`, etc.)
+  - descriptive message
+
+### Responsiveness
+
+- Material UI layout uses responsive stacks and grid cards.
+- Tested layout targets desktop and mobile widths on `http://localhost:3000`.
