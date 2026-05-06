@@ -62,14 +62,25 @@ function getTopPriorityUnreadNotifications(notifications, n = 10) {
 }
 
 async function fetchNotifications(token) {
-  const response = await fetch(NOTIFICATION_API_URL, {
+  let response = await fetch(NOTIFICATION_API_URL, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`
     }
   });
 
-  const data = await response.json().catch(() => ({}));
+  let data = await response.json().catch(() => ({}));
+
+  // Fallback in case the API expects the raw token instead of Bearer format.
+  if (response.status === 401) {
+    response = await fetch(NOTIFICATION_API_URL, {
+      method: "GET",
+      headers: {
+        Authorization: token
+      }
+    });
+    data = await response.json().catch(() => ({}));
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -82,6 +93,15 @@ async function fetchNotifications(token) {
   return data.notifications || [];
 }
 
+async function safeLog(level, packageName, message) {
+  try {
+    await Log("backend", level, packageName, message);
+  } catch (error) {
+    // Logging must never break business flow for Stage 1 output generation.
+    console.warn(`Log skipped: ${error.message}`);
+  }
+}
+
 async function runStage1() {
   const token = process.env.AFFORDMED_AUTH_TOKEN;
 
@@ -91,17 +111,11 @@ async function runStage1() {
 
   initLogger({ token });
 
-  await Log(
-    "backend",
-    "info",
-    "service",
-    "Stage 1 execution started: fetching notifications"
-  );
+  await safeLog("info", "service", "Stage 1 execution started: fetching notifications");
 
   const notifications = await fetchNotifications(token);
 
-  await Log(
-    "backend",
+  await safeLog(
     "info",
     "service",
     `Fetched ${notifications.length} notifications from protected API`
@@ -109,12 +123,7 @@ async function runStage1() {
 
   const top10 = getTopPriorityUnreadNotifications(notifications, 10);
 
-  await Log(
-    "backend",
-    "info",
-    "service",
-    `Computed top ${top10.length} priority notifications`
-  );
+  await safeLog("info", "service", `Computed top ${top10.length} priority notifications`);
 
   console.log(JSON.stringify({ top10 }, null, 2));
 }
@@ -126,12 +135,7 @@ if (require.main === module) {
     try {
       if (process.env.AFFORDMED_AUTH_TOKEN) {
         initLogger({ token: process.env.AFFORDMED_AUTH_TOKEN });
-        await Log(
-          "backend",
-          "error",
-          "handler",
-          `Stage 1 failed: ${error.message}`
-        );
+        await safeLog("error", "handler", `Stage 1 failed: ${error.message}`);
       }
     } catch (logError) {
       console.error("Failed to write error log:", logError.message);

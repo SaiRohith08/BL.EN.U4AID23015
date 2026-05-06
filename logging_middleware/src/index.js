@@ -53,6 +53,25 @@ function buildTimeoutSignal(timeoutMs) {
   return undefined;
 }
 
+async function parseResponseBody(response) {
+  return response.json().catch(() => ({}));
+}
+
+async function postLog(payload, authHeaderValue) {
+  const response = await fetch(loggerConfig.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: authHeaderValue
+    },
+    body: JSON.stringify(payload),
+    signal: buildTimeoutSignal(loggerConfig.timeoutMs)
+  });
+
+  const data = await parseResponseBody(response);
+  return { response, data };
+}
+
 async function Log(stack, level, packageName, message) {
   if (!loggerConfig.token) {
     throw new Error(
@@ -75,17 +94,11 @@ async function Log(stack, level, packageName, message) {
     message
   };
 
-  const response = await fetch(loggerConfig.endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${loggerConfig.token}`
-    },
-    body: JSON.stringify(payload),
-    signal: buildTimeoutSignal(loggerConfig.timeoutMs)
-  });
-
-  const data = await response.json().catch(() => ({}));
+  // Some protected routes expect "Bearer <token>", others expect plain token.
+  let { response, data } = await postLog(payload, `Bearer ${loggerConfig.token}`);
+  if (response.status === 401) {
+    ({ response, data } = await postLog(payload, loggerConfig.token));
+  }
 
   if (!response.ok) {
     throw new Error(
